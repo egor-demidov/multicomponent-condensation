@@ -48,7 +48,7 @@ class MultiComponentSystem:
         self.temperature_sat = temperature_sat
         self.xi_function = xi_function
 
-        assert len(components) == len(xi_function(0.0))
+        assert len(components) == len(xi_function(0.0))  # number of elements must match
 
         # Initialize saturated concentrations
         self.concentrations_sat = np.array([
