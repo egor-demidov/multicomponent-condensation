@@ -87,17 +87,19 @@ class MultiComponentSystem:
     def r_part(self, condensed_phase_mole_counts: np.ndarray[float]) -> float:
         return (3.0 * self.total_volume(condensed_phase_mole_counts) / 4.0 / np.pi) ** (1.0 / 3.0)
 
-    def ode_function(self, condensed_phase_mole_counts: np.ndarray[float], t: float) -> np.ndarray[float]:
+    def ode_function(self, t: float, condensed_phase_mole_counts: np.ndarray[float]) -> np.ndarray[float]:
         # find condensed phase mole fractions
         condensed_phase_compositions = condensed_phase_mole_counts / np.sum(condensed_phase_mole_counts)
         # find effective surface tension of the mixture
         surface_tension_effective = np.dot(condensed_phase_compositions, self.surface_tensions)
         # find effective particle radius
         r_part_effective = self.r_part(condensed_phase_mole_counts)
-        # find Kelvin correction factors
-        kelvin_correction_factors = np.exp(2.0 * surface_tension_effective * self.molar_volumes / r_part_effective / R_GAS / self.temperature_sat)
+        # find Kelvin correction factor
+        kelvin_correction_factor = np.exp(2.0 * surface_tension_effective
+                                          * np.dot(self.molar_volumes, condensed_phase_compositions)
+                                          / r_part_effective / R_GAS / self.temperature_sat)
         # TODO: add the constants to the expression (c_a_bar, alpha)
         return (np.pi * r_part_effective ** 2.0
                 * (8.0 * R_GAS * self.temperature_sat / np.pi / self.molar_masses) ** (1.0 / 2.0)
                 * ALPHA * self.concentrations_sat
-                * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factors))
+                * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factor))

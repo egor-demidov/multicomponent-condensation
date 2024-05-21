@@ -41,6 +41,6 @@ def ode_function(t: float, n_condensed: float) -> float:
 sol = solve_ivp(ode_function, [0, TIME], [0.0], t_eval=np.linspace(0, TIME, 100))
 
 plt.plot(sol.t, sol.y[0, :])
-# plt.plot(sol.t, calculate_radius(sol.y[0, :]) * 1e9)
+# plt.plot(sol.t, calculate_radius(sol.y[0, :]) * 1e9, '-o')
 plt.show()
 
