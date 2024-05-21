@@ -4,6 +4,8 @@ import numpy as np
 
 # Gas constant
 R_GAS = 8.314  # J/mol/K
+# Molecular accommodation coefficient
+ALPHA = 1.0
 
 
 class Component:
@@ -95,4 +97,7 @@ class MultiComponentSystem:
         # find Kelvin correction factors
         kelvin_correction_factors = np.exp(2.0 * surface_tension_effective * self.molar_volumes / r_part_effective / R_GAS / self.temperature_sat)
         # TODO: add the constants to the expression (c_a_bar, alpha)
-        return np.pi * r_part_effective ** 2.0 * self.concentrations_sat * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factors)
+        return (np.pi * r_part_effective ** 2.0
+                * (8.0 * R_GAS * self.temperature_sat / np.pi / self.molar_masses) ** (1.0 / 2.0)
+                * ALPHA * self.concentrations_sat
+                * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factors))
