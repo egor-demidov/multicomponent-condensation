@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import odeint
+from scipy.integrate import solve_ivp
 
 
 R_GAS = 8.314
@@ -14,6 +14,7 @@ MOLAR_VOLUME = MW / DENSITY
 TEMPERATURE = 298.0
 P_SAT = 1.6e-3
 C_SAT = P_SAT / R_GAS / TEMPERATURE
+TIME = 1000.0
 
 
 def xi_function(t: float) -> float:
@@ -28,7 +29,7 @@ def calculate_radius(n_condensed: float) -> float:
     return (3.0 * calculate_volume(n_condensed) / 4.0 / np.pi) ** (1.0 / 3.0)
 
 
-def ode_function(n_condensed: float, t: float) -> float:
+def ode_function(t: float, n_condensed: float) -> float:
     return (np.pi
             * calculate_radius(n_condensed) ** 2.0
             * (8.0 * R_GAS * TEMPERATURE / np.pi / MW) ** (1.0 / 2.0)
@@ -36,18 +37,10 @@ def ode_function(n_condensed: float, t: float) -> float:
             * C_SAT
             * (xi_function(t) - 1))
 
-t_span = np.linspace(0, 29500, 100)
 
-dt = 29500 / 100
-sol_self = np.zeros(len(t_span))
-for i in range(1, len(t_span)):
-    sol_self[i] = sol_self[i-1] + ode_function(sol_self[i-1], t_span[i]) * dt
+sol = solve_ivp(ode_function, [0, TIME], [0.0], t_eval=np.linspace(0, TIME, 100))
 
-sol = odeint(ode_function, 0.0, t_span)
-
-plt.plot(t_span, sol)
-plt.plot(t_span, sol_self)
-# plt.plot(t_span, ode_function(sol, t_span))
-
-# plt.plot(t_span, calculate_radius(sol) * 1e9)
+plt.plot(sol.t, sol.y[0, :])
+# plt.plot(sol.t, calculate_radius(sol.y[0, :]) * 1e9)
 plt.show()
+
