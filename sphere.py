@@ -1,5 +1,6 @@
 import typing
 import numpy as np
+from ode_constraints import constrain
 
 
 # Gas constant
@@ -87,6 +88,7 @@ class MultiComponentSystem:
     def r_part(self, condensed_phase_mole_counts: np.ndarray[float]) -> float:
         return (3.0 * self.total_volume(condensed_phase_mole_counts) / 4.0 / np.pi) ** (1.0 / 3.0)
 
+    # @constrain([0, np.inf])
     def ode_function(self, t: float, condensed_phase_mole_counts: np.ndarray[float]) -> np.ndarray[float]:
         # find condensed phase mole fractions
         condensed_phase_compositions = condensed_phase_mole_counts / np.sum(condensed_phase_mole_counts)
@@ -98,7 +100,6 @@ class MultiComponentSystem:
         kelvin_correction_factor = np.exp(2.0 * surface_tension_effective
                                           * np.dot(self.molar_volumes, condensed_phase_compositions)
                                           / r_part_effective / R_GAS / self.temperature_sat)
-        # TODO: add the constants to the expression (c_a_bar, alpha)
         return (np.pi * r_part_effective ** 2.0
                 * (8.0 * R_GAS * self.temperature_sat / np.pi / self.molar_masses) ** (1.0 / 2.0)
                 * ALPHA * self.concentrations_sat
