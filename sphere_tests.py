@@ -8,10 +8,61 @@ ARO_1_COMPONENT = Component('ARO1', 5.7e-5, 298, 156e3, 150e-3, 1200.0, 0.01)
 ARO_2_COMPONENT = Component('ARO2', 1.6e-3, 298, 156e3, 150e-3, 1100.0, 0.01)
 
 def xi_function_binary(t: float) -> np.ndarray[float]:
-    return [1.2, 0.5]
+    return np.array([1.5, 1.5]) * 0.5
 
 def xi_function_unary(t: float) -> np.ndarray[float]:
-    return [1.5]
+    return np.array([1.5])
+
+
+class TestSingleMultiComponentParity(unittest.TestCase):
+
+    def setUp(self):
+        self.r_part_0 = 14e-9
+        self.n_tot_0 = 1.0e-21
+        self.pressure_atm = 101_325.0
+        self.temperature_sat = 298.0
+
+        self.system_single = MultiComponentSystem(
+            [ARO_1_COMPONENT],
+            xi_function_unary,
+            self.r_part_0,
+            self.n_tot_0,
+            self.pressure_atm,
+            self.temperature_sat
+        )
+
+        self.system_double = MultiComponentSystem(
+            [ARO_1_COMPONENT, ARO_1_COMPONENT],
+            xi_function_binary,
+            self.r_part_0,
+            self.n_tot_0,
+            self.pressure_atm,
+            self.temperature_sat
+        )
+
+    def test_parity(self):
+
+        double_system_compositions = (self.system_double.condensed_phase_mole_counts_0
+                                      / np.sum(self.system_double.condensed_phase_mole_counts_0))
+
+        np.testing.assert_allclose(self.system_single.molar_volumes[0],
+                                   np.dot(self.system_double.molar_volumes, double_system_compositions))
+
+        np.testing.assert_allclose(self.system_single.molar_masses[0],
+                                   np.dot(self.system_double.molar_masses, double_system_compositions))
+
+        np.testing.assert_allclose(self.system_single.surface_tensions[0],
+                                  np.dot(self.system_double.surface_tensions, double_system_compositions))
+
+        np.testing.assert_allclose(self.system_single.total_volume(self.system_single.condensed_phase_mole_counts_0),
+                                   self.system_double.total_volume(self.system_double.condensed_phase_mole_counts_0))
+
+        np.testing.assert_allclose(self.system_single.r_part(self.system_single.condensed_phase_mole_counts_0),
+                                   self.system_double.r_part(self.system_double.condensed_phase_mole_counts_0))
+
+        np.testing.assert_allclose(self.system_single.ode_function(0.0, self.system_single.condensed_phase_mole_counts_0)[0],
+                                   np.sum(self.system_double.ode_function(0.0, self.system_double.condensed_phase_mole_counts_0)))
+
 
 class TestSingleComponentSystem(unittest.TestCase):
 
@@ -30,13 +81,13 @@ class TestSingleComponentSystem(unittest.TestCase):
             self.temperature_sat
         )
 
-    def test_condensation(self):
-        t_span = np.linspace(0, 1000, 100)
-
-        sol = odeint(self.system.ode_function, self.system.condensed_phase_mole_counts_0, t_span)
-
-        plt.plot(t_span, self.system.r_part(sol) * 1e9)
-        plt.show()
+    # def test_condensation(self):
+    #     t_span = np.linspace(0, 1000, 100)
+    #
+    #     sol = odeint(self.system.ode_function, self.system.condensed_phase_mole_counts_0, t_span)
+    #
+    #     plt.plot(t_span, self.system.r_part(sol) * 1e9)
+    #     plt.show()
 
 class TestMultiComponentSystem(unittest.TestCase):
 
