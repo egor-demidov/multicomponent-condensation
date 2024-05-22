@@ -1,6 +1,6 @@
+import abc
 import typing
 import numpy as np
-from ode_constraints import constrain
 
 
 # Gas constant
@@ -35,6 +35,17 @@ class Component:
         return self.pressure_ref * np.exp(-self.dh_vap / R_GAS * (1.0 / temperature_sat - 1.0 / self.temperature_ref))
 
 
+class GeometryModel(metaclass=abc.ABCMeta):
+
+    @abc.abstractmethod
+    def compute_area(self, r_core: float, condensed_phase_volume: float) -> float:
+        pass
+
+    @abc.abstractmethod
+    def compute_kappa(self, r_core: float, condensed_phase_volume: float) -> float:
+        pass
+
+
 class MultiComponentSystem:
 
     def __init__(
@@ -44,12 +55,14 @@ class MultiComponentSystem:
             r_part_0: float,                                            # initial (core) radius
             n_tot_0: float,                                             # initial condensed phase total mole count
             pressure_atm: float,                                        # atmospheric pressure
-            temperature_sat: float                                      # ambient temperature
+            temperature_sat: float,                                     # ambient temperature
+            geometry_model: GeometryModel                               # geometry model
     ):
         self.components = components
         self.r_part_0 = r_part_0
         self.temperature_sat = temperature_sat
         self.xi_function = xi_function
+        self.geometry_model = geometry_model
 
         assert len(components) == len(xi_function(0.0))  # number of elements must match
 
@@ -70,23 +83,14 @@ class MultiComponentSystem:
         # Initialize molar volumes
         self.molar_volumes = self.molar_masses / self.densities
 
-        # Initialize volume of the core
-        self.core_volume = 4.0 / 3.0 * np.pi * self.r_part_0 ** 3.0
-
         # Initialize liquid phase components mole counts
         self.concentration_atm = pressure_atm / R_GAS / temperature_sat
         vapor_phase_compositions_0 = self.concentrations_sat * xi_function(0.0) / self.concentration_atm
         condensed_phase_compositions_0 = vapor_phase_compositions_0 / np.sum(vapor_phase_compositions_0)
         self.condensed_phase_mole_counts_0 = n_tot_0 * condensed_phase_compositions_0
 
-    def total_volume(self, condensed_phase_mole_counts: np.ndarray[float]) -> float:
-        # volume of condensate
-        volume_condensate = np.dot(condensed_phase_mole_counts, self.molar_volumes)
-
-        return self.core_volume + volume_condensate
-
-    def r_part(self, condensed_phase_mole_counts: np.ndarray[float]) -> float:
-        return (3.0 * self.total_volume(condensed_phase_mole_counts) / 4.0 / np.pi) ** (1.0 / 3.0)
+    def compute_condensed_phase_volume(self, condensed_phase_mole_counts: np.ndarray[float]) -> float:
+        return np.dot(condensed_phase_mole_counts, self.molar_volumes)
 
     # @constrain([0, np.inf])
     def ode_function(self, t: float, condensed_phase_mole_counts: np.ndarray[float]) -> np.ndarray[float]:
@@ -94,13 +98,15 @@ class MultiComponentSystem:
         condensed_phase_compositions = condensed_phase_mole_counts / np.sum(condensed_phase_mole_counts)
         # find effective surface tension of the mixture
         surface_tension_effective = np.dot(condensed_phase_compositions, self.surface_tensions)
-        # find effective particle radius
-        r_part_effective = self.r_part(condensed_phase_mole_counts)
+        # find condensed phase volume
+        condensed_phase_volume = self.compute_condensed_phase_volume(condensed_phase_mole_counts)
+
         # find Kelvin correction factor
-        kelvin_correction_factor = np.exp(2.0 * surface_tension_effective
+        kelvin_correction_factor = np.exp(2.0 * self.geometry_model.compute_kappa(self.r_part_0, condensed_phase_volume) * surface_tension_effective
                                           * np.dot(self.molar_volumes, condensed_phase_compositions)
-                                          / r_part_effective / R_GAS / self.temperature_sat)
-        return (np.pi * r_part_effective ** 2.0
+                                          / R_GAS / self.temperature_sat)
+
+        return (1.0 / 4.0 * self.geometry_model.compute_area(self.r_part_0, condensed_phase_volume)
                 * (8.0 * R_GAS * self.temperature_sat / np.pi / self.molar_masses) ** (1.0 / 2.0)
                 * ALPHA * self.concentrations_sat
                 * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factor))
