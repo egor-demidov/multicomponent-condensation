@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.integrate import solve_bvp
+from scipy.interpolate import CubicSpline
 from multi_component_system import GeometryModel
 
 import matplotlib.pyplot as plt
@@ -34,11 +35,22 @@ def calculate_area(t_span, y, y_prime):
     return np.trapz(integrand, t_span)
 
 
+class VolumeOutOfBoundsException(Exception):
+    pass
+
 class CatenoidModel(GeometryModel):
 
     def __init__(self, contact_angle, n_filling_angles):
 
-        for filling_angle in np.linspace(0.05, np.pi / 2.0, n_filling_angles):
+        filling_angles = np.linspace(0.05, np.pi / 2.0, n_filling_angles)
+        # catenoid_data_table columns: filling angle, volume, area, curvature
+        self.catenoid_data_table = np.zeros([len(filling_angles), 4])
+
+        self.catenoid_data_table[:, 0] = filling_angles
+
+        for i in range(len(filling_angles)):
+
+            filling_angle = filling_angles[i]
 
             kappa_initial_guess = np.array([0])
 
@@ -61,14 +73,30 @@ class CatenoidModel(GeometryModel):
             volume = calculate_volume(t_catenoid, y_catenoid, filling_angle)
             area = calculate_area(t_catenoid, y_catenoid, y_prime_catenoid)
 
-            print(f'{curvature} {volume} {area}')
+            self.catenoid_data_table[i, 1] = volume
+            self.catenoid_data_table[i, 2] = area
+            self.catenoid_data_table[i, 3] = curvature
+
+        increasing_volume_order = np.argsort(self.catenoid_data_table[:, 1])
+        self.catenoid_data_table[:, :] = self.catenoid_data_table[increasing_volume_order, :]
+
+        self.reduced_area_spline = CubicSpline(self.catenoid_data_table[:, 1], self.catenoid_data_table[:, 2])
+        self.reduced_kappa_spline = CubicSpline(self.catenoid_data_table[:, 1], self.catenoid_data_table[:, 3])
+
+    def validate_volume(self, reduced_condensed_phase_volume: float):
+        if (reduced_condensed_phase_volume < self.catenoid_data_table[0, 1]
+                or reduced_condensed_phase_volume > self.catenoid_data_table[-1, 1]):
+            raise VolumeOutOfBoundsException("Condensed phase volume out of bounds")
 
     def compute_area(self, r_core: float, condensed_phase_volume: float) -> float:
-        pass
+        reduced_condensed_phase_volume = condensed_phase_volume / r_core ** 3.0
+        self.validate_volume(reduced_condensed_phase_volume)
+
+        return self.reduced_area_spline(reduced_condensed_phase_volume) * r_core ** 2.0
 
     def compute_kappa(self, r_core: float, condensed_phase_volume: float) -> float:
-        pass
+        reduced_condensed_phase_volume = condensed_phase_volume / r_core ** 3.0
+        self.validate_volume(reduced_condensed_phase_volume)
 
+        return self.reduced_kappa_spline(reduced_condensed_phase_volume) / r_core
 
-if __name__ == '__main__':
-    cat = CatenoidModel(0.0, 100)
