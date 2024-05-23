@@ -33,6 +33,7 @@ def calculate_area(t_span, y, y_prime):
     integrand = 2.0 * np.pi * y * np.sqrt(1 + y_prime ** 2.0)
     return np.trapz(integrand, t_span)
 
+
 class CatenoidModel(GeometryModel):
 
     def __init__(self, contact_angle, n_filling_angles):
@@ -53,10 +54,12 @@ class CatenoidModel(GeometryModel):
 
             curvature = -sol.p[0]
 
-            # TODO: compare volumes and areas to Elly's code
-            # TODO: use different Kelvin correction factors for each component
-            volume = calculate_volume(sol.x, sol.y[0, :], filling_angle)
-            area = calculate_area(sol.x, sol.y[0, :], sol.y[1, :])
+            t_catenoid = np.concatenate((sol.x, sol.x[1:] + sol.x[-1]))
+            y_catenoid = np.concatenate((sol.y[0, :], np.flip(sol.y[0, :-1])))
+            y_prime_catenoid = np.concatenate((sol.y[1, :], -np.flip(sol.y[1, :-1])))
+
+            volume = calculate_volume(t_catenoid, y_catenoid, filling_angle)
+            area = calculate_area(t_catenoid, y_catenoid, y_prime_catenoid)
 
             print(f'{curvature} {volume} {area}')
 

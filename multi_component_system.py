@@ -101,12 +101,12 @@ class MultiComponentSystem:
         # find condensed phase volume
         condensed_phase_volume = self.compute_condensed_phase_volume(condensed_phase_mole_counts)
 
-        # find Kelvin correction factor
-        kelvin_correction_factor = np.exp(2.0 * self.geometry_model.compute_kappa(self.r_part_0, condensed_phase_volume) * surface_tension_effective
-                                          * np.dot(self.molar_volumes, condensed_phase_compositions)
+        # find Kelvin correction factors
+        kelvin_correction_factors = np.exp(2.0 * self.geometry_model.compute_kappa(self.r_part_0, condensed_phase_volume) * surface_tension_effective
+                                          * self.molar_volumes
                                           / R_GAS / self.temperature_sat)
 
         return (1.0 / 4.0 * self.geometry_model.compute_area(self.r_part_0, condensed_phase_volume)
                 * (8.0 * R_GAS * self.temperature_sat / np.pi / self.molar_masses) ** (1.0 / 2.0)
                 * ALPHA * self.concentrations_sat
-                * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factor))
+                * (self.xi_function(t) - condensed_phase_compositions * kelvin_correction_factors))
