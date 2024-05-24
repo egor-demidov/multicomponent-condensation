@@ -6,7 +6,7 @@ from multi_component_system import GeometryModel
 import matplotlib.pyplot as plt
 
 
-NUM_CATENOID_POINTS = 200
+NUM_CATENOID_POINTS = 1000
 
 
 def catenoid_ode(t, y, kappa):
@@ -37,6 +37,7 @@ def calculate_area(t_span, y, y_prime):
 
 class VolumeOutOfBoundsException(Exception):
     pass
+
 
 class CatenoidModel(GeometryModel):
 
@@ -77,11 +78,9 @@ class CatenoidModel(GeometryModel):
             self.catenoid_data_table[i, 2] = area
             self.catenoid_data_table[i, 3] = curvature
 
-        increasing_volume_order = np.argsort(self.catenoid_data_table[:, 1])
-        self.catenoid_data_table[:, :] = self.catenoid_data_table[increasing_volume_order, :]
-
         self.reduced_area_spline = CubicSpline(self.catenoid_data_table[:, 1], self.catenoid_data_table[:, 2])
         self.reduced_kappa_spline = CubicSpline(self.catenoid_data_table[:, 1], self.catenoid_data_table[:, 3])
+        self.filling_angle_spline = CubicSpline(self.catenoid_data_table[:, 1], self.catenoid_data_table[:, 0])
 
     def validate_volume(self, reduced_condensed_phase_volume: float):
         if (reduced_condensed_phase_volume < self.catenoid_data_table[0, 1]
@@ -100,3 +99,12 @@ class CatenoidModel(GeometryModel):
 
         return self.reduced_kappa_spline(reduced_condensed_phase_volume) / r_core
 
+    def compute_filling_angle(self, r_core: float, condensed_phase_volume: float) -> float:
+        reduced_condensed_phase_volume = condensed_phase_volume / r_core ** 3.0
+        self.validate_volume(reduced_condensed_phase_volume)
+
+        return self.filling_angle_spline(reduced_condensed_phase_volume)
+
+
+if __name__ == '__main__':
+    CatenoidModel(0.0, 100)
